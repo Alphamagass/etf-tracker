@@ -1,0 +1,1367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ETF Portfolio Tracker - VOO & VEA</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            color: #ffffff;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+            background: linear-gradient(90deg, #00d9ff, #00ff88);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .subtitle {
+            color: #8892b0;
+            font-size: 0.95rem;
+        }
+
+        .last-update {
+            color: #64ffda;
+            font-size: 0.8rem;
+            margin-top: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .last-update .dot {
+            width: 8px;
+            height: 8px;
+            background: #64ffda;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        .portfolio-card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 20px;
+        }
+
+        .portfolio-card h2 {
+            font-size: 1.1rem;
+            color: #8892b0;
+            margin-bottom: 20px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-size: 0.85rem;
+        }
+
+        .input-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr 80px;
+            gap: 12px;
+            margin-bottom: 16px;
+            align-items: end;
+        }
+
+        .input-group label {
+            font-size: 0.8rem;
+            color: #64ffda;
+            margin-bottom: 6px;
+            display: block;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 12px 16px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            color: white;
+            font-size: 1rem;
+            transition: all 0.3s;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: #00d9ff;
+            box-shadow: 0 0 20px rgba(0, 217, 255, 0.2);
+        }
+
+        .add-btn {
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #00d9ff, #00ff88);
+            border: none;
+            border-radius: 10px;
+            color: #1a1a2e;
+            font-weight: 600;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            height: 48px;
+        }
+
+        .add-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(0, 217, 255, 0.3);
+        }
+
+        .add-btn:active {
+            transform: translateY(0);
+        }
+
+        .etf-item {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr 100px 40px;
+            gap: 12px;
+            align-items: center;
+            padding: 16px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 12px;
+            margin-bottom: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .etf-info {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .etf-ticker {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #00d9ff;
+        }
+
+        .etf-name {
+            font-size: 0.75rem;
+            color: #64ffda;
+        }
+
+        .etf-price {
+            font-size: 1.4rem;
+            font-weight: 600;
+        }
+
+        .etf-change {
+            font-size: 0.9rem;
+            font-weight: 600;
+            padding: 4px 10px;
+            border-radius: 20px;
+            display: inline-block;
+            width: fit-content;
+        }
+
+        .etf-change.positive {
+            background: rgba(0, 255, 136, 0.15);
+            color: #00ff88;
+        }
+
+        .etf-change.negative {
+            background: rgba(255, 71, 87, 0.15);
+            color: #ff4757;
+        }
+
+        .etf-value {
+            font-size: 1.1rem;
+            font-weight: 600;
+            text-align: right;
+        }
+
+        .remove-btn {
+            background: rgba(255, 71, 87, 0.1);
+            border: 1px solid rgba(255, 71, 87, 0.3);
+            color: #ff4757;
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1.2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .remove-btn:hover {
+            background: rgba(255, 71, 87, 0.2);
+        }
+
+        .summary {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .summary-item {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .summary-label {
+            font-size: 0.75rem;
+            color: #8892b0;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+
+        .summary-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        .summary-value.positive {
+            color: #00ff88;
+        }
+
+        .summary-value.negative {
+            color: #ff4757;
+        }
+
+        .summary-item {
+            cursor: pointer;
+            transition: background 0.2s;
+            position: relative;
+        }
+
+        .summary-item:hover {
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .summary-item .expand-hint {
+            font-size: 0.7rem;
+            color: #64ffda;
+            margin-top: 6px;
+            opacity: 0.7;
+        }
+
+        .detail-panel {
+            display: none;
+            margin-top: 12px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 20px;
+            text-align: left;
+        }
+
+        .detail-panel.show {
+            display: block;
+        }
+
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            font-size: 0.85rem;
+            gap: 8px;
+        }
+
+        .detail-row:last-child {
+            border-bottom: none;
+        }
+
+        .detail-row .detail-main {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .detail-row .detail-ticker {
+            color: #00d9ff;
+            font-weight: 700;
+        }
+
+        .detail-row .detail-sub {
+            color: #8892b0;
+            font-size: 0.75rem;
+        }
+
+        .detail-row .detail-amount {
+            font-weight: 600;
+            text-align: right;
+        }
+
+        .detail-remove {
+            background: none;
+            border: none;
+            color: #ff4757;
+            cursor: pointer;
+            font-size: 1rem;
+            padding: 0 4px;
+        }
+
+        .detail-empty {
+            text-align: center;
+            color: #8892b0;
+            font-size: 0.85rem;
+            padding: 12px;
+        }
+
+        .proj-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 16px;
+            font-size: 0.85rem;
+        }
+
+        .proj-table th {
+            text-align: right;
+            color: #64ffda;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 8px 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .proj-table th:first-child, .proj-table td:first-child {
+            text-align: left;
+        }
+
+        .proj-table td {
+            text-align: right;
+            padding: 8px 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .proj-table tr:last-child td {
+            font-weight: 700;
+            color: #00ff88;
+        }
+
+        .proj-summary {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        @media (max-width: 768px) {
+            .proj-summary {
+                grid-template-columns: 1fr;
+            }
+            .proj-table {
+                font-size: 0.75rem;
+            }
+        }
+
+        .chart-container {
+            height: 200px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: flex-end;
+            gap: 2px;
+        }
+
+        .chart-bar {
+            flex: 1;
+            background: linear-gradient(180deg, #00d9ff, #00ff88);
+            border-radius: 2px 2px 0 0;
+            transition: height 0.3s;
+            min-height: 4px;
+            opacity: 0.7;
+        }
+
+        .chart-bar:hover {
+            opacity: 1;
+        }
+
+        .chart-labels {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 8px;
+            font-size: 0.7rem;
+            color: #64ffda;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #64ffda;
+        }
+
+        .empty-state-icon {
+            font-size: 3rem;
+            margin-bottom: 16px;
+        }
+
+        .error-toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 71, 87, 0.9);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            transform: translateX(120%);
+            transition: transform 0.3s;
+            z-index: 1000;
+        }
+
+        .error-toast.show {
+            transform: translateX(0);
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: #00d9ff;
+            animation: spin 1s linear infinite;
+            margin-left: 8px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .view-toggle {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+
+        .toggle-btn {
+            padding: 8px 16px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            color: #8892b0;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+        }
+
+        .toggle-btn.active {
+            background: rgba(0, 217, 255, 0.15);
+            border-color: #00d9ff;
+            color: #00d9ff;
+        }
+
+        .toggle-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        @media (max-width: 768px) {
+            .input-group {
+                grid-template-columns: 1fr 1fr !important;
+            }
+            .input-group .add-btn {
+                grid-column: 1 / -1;
+            }
+            .etf-item {
+                grid-template-columns: 1fr 1fr 80px 30px;
+            }
+            .etf-change {
+                grid-column: span 1;
+            }
+            .summary {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📊 ETF Portfolio Tracker</h1>
+            <p class="subtitle">Suivi en temps réel de ton portefeuille</p>
+            <div class="last-update">
+                <span class="dot"></span>
+                <span id="lastUpdate">Mise à jour en temps réel</span>
+            </div>
+        </header>
+
+        <div class="summary" id="summarySection" style="display: none;">
+            <div class="summary-item" onclick="toggleDetails('invest')">
+                <div class="summary-label">Investissement Total</div>
+                <div class="summary-value" id="totalInvest">$0.00</div>
+                <div class="expand-hint">▾ voir le détail par achat</div>
+            </div>
+            <div class="summary-item" onclick="toggleDetails('value')">
+                <div class="summary-label">Valeur Actuelle</div>
+                <div class="summary-value" id="totalValue">$0.00</div>
+                <div class="expand-hint">▾ voir le détail par ETF</div>
+            </div>
+            <div class="summary-item" style="cursor: default;">
+                <div class="summary-label">Gain / Perte</div>
+                <div class="summary-value" id="totalGain">$0.00 (0.00%)</div>
+            </div>
+            <div class="summary-item" onclick="toggleDetails('dividends')">
+                <div class="summary-label">Dividendes Reçus (estimé)</div>
+                <div class="summary-value" id="totalDividends">$0.00</div>
+                <div class="expand-hint">▾ voir le détail par versement</div>
+            </div>
+        </div>
+
+        <div class="detail-panel" id="investDetailPanel"></div>
+        <div class="detail-panel" id="valueDetailPanel"></div>
+        <div class="detail-panel" id="dividendsDetailPanel"></div>
+
+        <div class="portfolio-card">
+            <h2>Ajouter un achat</h2>
+            <div class="input-group" style="grid-template-columns: 1fr 1fr 1fr 1fr 90px;">
+                <div>
+                    <label>Ticker (ex: VOO, VEA)</label>
+                    <input type="text" id="tickerInput" placeholder="VOO, VEA, VTI..."
+                           style="text-transform: uppercase;">
+                </div>
+                <div>
+                    <label>Prix payé / action ($)</label>
+                    <input type="number" id="priceInput" placeholder="705.04" min="0" step="0.01">
+                </div>
+                <div>
+                    <label>Montant investi ($)</label>
+                    <input type="number" id="amountInput" placeholder="50" min="0" step="0.01">
+                </div>
+                <div>
+                    <label>Date d'achat</label>
+                    <input type="date" id="dateInput">
+                </div>
+                <button class="add-btn" onclick="addETF()">+ Ajouter</button>
+            </div>
+            <p style="font-size: 0.75rem; color: #8892b0; margin-top: 4px;">
+                Le nombre d'actions (fractions incluses) est calculé automatiquement : Montant ÷ Prix.
+            </p>
+        </div>
+
+        <div class="portfolio-card">
+            <h2>📈 Projection (intérêts composés)</h2>
+            <p style="font-size: 0.8rem; color: #8892b0; margin-bottom: 16px;">
+                Simulation en supposant que tu investis un montant fixe chaque mois et que
+                tous les gains sont réinvestis (intérêts composés). C'est une estimation —
+                le rendement réel des marchés varie d'une année à l'autre.
+            </p>
+            <div class="input-group" style="grid-template-columns: 1fr 1fr 100px;">
+                <div>
+                    <label>Ticker pour le rendement historique</label>
+                    <input type="text" id="projTickerInput" placeholder="VOO" style="text-transform: uppercase;">
+                </div>
+                <div>
+                    <label>Période historique</label>
+                    <select id="projYearsBackInput" style="width:100%; padding:12px 16px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.1); border-radius:10px; color:white; font-size:1rem;">
+                        <option value="5">5 ans</option>
+                        <option value="10" selected>10 ans</option>
+                        <option value="max">Max disponible</option>
+                    </select>
+                </div>
+                <button class="add-btn" onclick="fetchHistoricalCagr()">📊 Récupérer</button>
+            </div>
+            <p id="cagrNote" style="font-size: 0.75rem; color: #8892b0; margin-bottom: 16px;"></p>
+
+            <div class="input-group" style="grid-template-columns: 1fr 1fr 1fr 110px;">
+                <div>
+                    <label>Montant mensuel ($)</label>
+                    <input type="number" id="projMonthlyInput" placeholder="50" min="0" step="0.01" value="50">
+                </div>
+                <div>
+                    <label>Rendement annuel estimé (%)</label>
+                    <input type="number" id="projRateInput" placeholder="7" min="0" step="0.1" value="7">
+                </div>
+                <div>
+                    <label>Durée (années)</label>
+                    <input type="number" id="projYearsInput" placeholder="20" min="1" step="1" value="20">
+                </div>
+                <button class="add-btn" onclick="calculateProjection()">Calculer</button>
+            </div>
+            <div id="projectionResults"></div>
+        </div>
+
+        <div class="view-toggle">
+            <button class="toggle-btn active" onclick="setView('table')">📋 Tableau</button>
+            <button class="toggle-btn" onclick="setView('chart')">📈 Graphique</button>
+        </div>
+
+        <div id="etfList">
+            <div class="empty-state" id="emptyState">
+                <div class="empty-state-icon">📈</div>
+                <p>Ajoute tes ETF pour commencer le suivi</p>
+                <p style="font-size: 0.85rem; color: #64ffda; margin-top: 8px;">
+                    Exemple: VOO (S&P 500), VEA (Europe), VTI (Total US), VT (Monde)
+                </p>
+            </div>
+        </div>
+
+        <div id="chartSection" style="display: none;" class="portfolio-card">
+            <h2>Évolution des prix (24 dernières périodes)</h2>
+            <div class="chart-container" id="chartContainer"></div>
+            <div class="chart-labels">
+                <span id="chartStart">-24h</span>
+                <span id="chartEnd">Maintenant</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="error-toast" id="errorToast"></div>
+
+    <script>
+        // Portfolio data: { ticker, name, purchases: [{quantity, price, date}], currentPrice, ... }
+        let portfolio = [];
+        let priceHistory = {};
+        let updateInterval;
+        let dividendsCache = {}; // ticker -> [{date (unix s), amount (per share)}]
+
+        // ETF metadata
+        const etfMeta = {
+            'VOO': 'Vanguard S&P 500 ETF',
+            'VEA': 'Vanguard FTSE Developed Markets ETF',
+            'VTI': 'Vanguard Total Stock Market ETF',
+            'VT': 'Vanguard Total World Stock ETF',
+            'VXUS': 'Vanguard Total International Stock ETF',
+            'BND': 'Vanguard Total Bond Market ETF',
+            'AGG': 'iShares Core U.S. Aggregate Bond ETF',
+            'VUG': 'Vanguard Growth ETF',
+            'VTV': 'Vanguard Value ETF',
+            'QQQ': 'Invesco QQQ Trust',
+            'SPY': 'SPDR S&P 500 ETF Trust',
+            'IEFA': 'iShares Core MSCI EAFE ETF',
+            'IEMG': 'iShares Core MSCI Emerging Markets ETF',
+            'SCHD': 'Schwab US Dividend Equity ETF',
+        };
+
+        // Local persistence (this device/browser only — not synced across devices)
+        const STORAGE_KEY = 'etfPortfolioTracker.portfolio';
+
+        function saveToLocalStorage() {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(portfolio));
+            } catch (e) {
+                console.error('Error saving portfolio to localStorage:', e);
+            }
+        }
+
+        function loadFromLocalStorage() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                if (!raw) return null;
+                const parsed = JSON.parse(raw);
+                return Array.isArray(parsed) ? parsed : null;
+            } catch (e) {
+                console.error('Error loading portfolio from localStorage:', e);
+                return null;
+            }
+        }
+
+        // Initialize: restore saved portfolio if present. No fake demo data —
+        // an empty portfolio starts genuinely empty.
+        function initPortfolio() {
+            const saved = loadFromLocalStorage();
+            if (saved && Array.isArray(saved)) {
+                for (const etf of saved) {
+                    portfolio.push({
+                        ticker: etf.ticker,
+                        name: etfMeta[etf.ticker] || etf.ticker,
+                        purchases: Array.isArray(etf.purchases) ? etf.purchases : [],
+                        dividendsReinvestedUntil: etf.dividendsReinvestedUntil || 0
+                    });
+                    priceHistory[etf.ticker] = [];
+                }
+            }
+        }
+
+        function getOrCreateETF(ticker) {
+            let etf = portfolio.find(e => e.ticker === ticker);
+            if (!etf) {
+                etf = {
+                    ticker: ticker,
+                    name: etfMeta[ticker] || ticker,
+                    purchases: []
+                };
+                portfolio.push(etf);
+                priceHistory[ticker] = [];
+            }
+            return etf;
+        }
+
+        // Per-ETF aggregates across all its purchase lots
+        function etfTotalQuantity(etf) {
+            return etf.purchases.reduce((sum, p) => sum + p.quantity, 0);
+        }
+
+        function etfTotalCost(etf) {
+            return etf.purchases.reduce((sum, p) => sum + p.quantity * p.price, 0);
+        }
+
+        function etfCurrentValue(etf) {
+            return etf.currentPrice ? etfTotalQuantity(etf) * etf.currentPrice : 0;
+        }
+
+        function addPurchase(ticker, quantity, price, date) {
+            const etf = getOrCreateETF(ticker.toUpperCase());
+            etf.purchases.push({ quantity, price, date });
+            saveToLocalStorage();
+        }
+
+        function addETF() {
+            const ticker = document.getElementById('tickerInput').value.trim().toUpperCase();
+            const price = parseFloat(document.getElementById('priceInput').value);
+            const amount = parseFloat(document.getElementById('amountInput').value);
+            let date = document.getElementById('dateInput').value;
+
+            if (!ticker) {
+                showError('⚠️ Veuillez entrer un ticker (ex: VOO)');
+                return;
+            }
+            if (!price || price <= 0) {
+                showError('⚠️ Veuillez entrer le prix payé par action');
+                return;
+            }
+            if (!amount || amount <= 0) {
+                showError('⚠️ Veuillez entrer le montant investi');
+                return;
+            }
+            if (!date) {
+                date = new Date().toISOString().slice(0, 10);
+            }
+
+            const quantity = amount / price;
+            addPurchase(ticker, quantity, price, date);
+
+            renderPortfolio();
+            document.getElementById('tickerInput').value = '';
+            document.getElementById('priceInput').value = '';
+            document.getElementById('amountInput').value = '';
+            document.getElementById('dateInput').value = '';
+            fetchPrices();
+        }
+
+        function removeETF(ticker) {
+            portfolio = portfolio.filter(e => e.ticker !== ticker);
+            delete priceHistory[ticker];
+            saveToLocalStorage();
+            renderPortfolio();
+            fetchPrices();
+        }
+
+        function removePurchase(ticker, index) {
+            const etf = portfolio.find(e => e.ticker === ticker);
+            if (!etf) return;
+            etf.purchases.splice(index, 1);
+            if (etf.purchases.length === 0) {
+                portfolio = portfolio.filter(e => e.ticker !== ticker);
+                delete priceHistory[ticker];
+            }
+            saveToLocalStorage();
+            renderPortfolio();
+            renderInvestDetails();
+        }
+
+        let openDetailPanel = null;
+
+        function allDetailPanels() {
+            return {
+                invest: document.getElementById('investDetailPanel'),
+                value: document.getElementById('valueDetailPanel'),
+                dividends: document.getElementById('dividendsDetailPanel'),
+            };
+        }
+
+        async function toggleDetails(which) {
+            const panels = allDetailPanels();
+
+            if (openDetailPanel === which) {
+                Object.values(panels).forEach(p => p.classList.remove('show'));
+                openDetailPanel = null;
+                return;
+            }
+
+            openDetailPanel = which;
+            Object.entries(panels).forEach(([key, p]) => {
+                p.classList.toggle('show', key === which);
+            });
+
+            if (which === 'invest') {
+                renderInvestDetails();
+            } else if (which === 'value') {
+                renderValueDetails();
+            } else if (which === 'dividends') {
+                panels.dividends.innerHTML = '<div class="detail-empty">⏳ Calcul en cours (récupération de l\'historique des dividendes)...</div>';
+                await refreshDividends();
+                renderDividendsDetails();
+            }
+        }
+
+        // Fetch dividend payment history for every ticker currently held
+        // (cached — only refetched once per ticker per page load).
+        async function refreshDividends() {
+            const tickers = portfolio.map(e => e.ticker).filter(t => !dividendsCache[t]);
+            await Promise.allSettled(tickers.map(async (ticker) => {
+                try {
+                    const response = await fetch(`/api/dividends?ticker=${encodeURIComponent(ticker)}&range=max`);
+                    const data = await response.json();
+                    if (!response.ok || data.error) throw new Error(data.error || 'échec');
+                    dividendsCache[ticker] = data.payments || [];
+                } catch (error) {
+                    console.error(`Error fetching dividends for ${ticker}:`, error);
+                    dividendsCache[ticker] = [];
+                }
+            }));
+            updateDividendsSummary();
+        }
+
+        function purchaseDateToTimestamp(dateStr) {
+            return Math.floor(new Date(dateStr + 'T00:00:00Z').getTime() / 1000);
+        }
+
+        function sharesHeldAt(etf, timestampSeconds) {
+            return etf.purchases
+                .filter(p => purchaseDateToTimestamp(p.date) <= timestampSeconds)
+                .reduce((sum, p) => sum + p.quantity, 0);
+        }
+
+        // Estimated dividend payments received: for every historical dividend
+        // date, how many shares you already held (based on purchase dates) ×
+        // dividend per share. Requires dividendsCache[ticker] to be populated.
+        function etfDividendPayments(etf) {
+            const payments = dividendsCache[etf.ticker] || [];
+            const claimedUntil = etf.dividendsReinvestedUntil || 0;
+            const rows = [];
+            for (const div of payments) {
+                if (div.date <= claimedUntil) continue; // already reinvested previously
+                const shares = sharesHeldAt(etf, div.date);
+                if (shares > 0) {
+                    rows.push({ date: div.date, shares, perShare: div.amount, total: shares * div.amount });
+                }
+            }
+            return rows;
+        }
+
+        function etfDividendsTotal(etf) {
+            return etfDividendPayments(etf).reduce((sum, r) => sum + r.total, 0);
+        }
+
+        function updateDividendsSummary() {
+            const total = portfolio.reduce((sum, e) => sum + etfDividendsTotal(e), 0);
+            document.getElementById('totalDividends').textContent = formatCurrency(total);
+        }
+
+        function renderDividendsDetails() {
+            const panel = document.getElementById('dividendsDetailPanel');
+            if (portfolio.length === 0) {
+                panel.innerHTML = '<div class="detail-empty">Aucune position</div>';
+                return;
+            }
+
+            let rows = '';
+            let grandTotal = 0;
+            for (const etf of portfolio) {
+                const payments = etfDividendPayments(etf);
+                for (const p of payments) {
+                    grandTotal += p.total;
+                    const d = new Date(p.date * 1000);
+                    rows += `
+                        <div class="detail-row">
+                            <div class="detail-main">
+                                <span class="detail-ticker">${etf.ticker}</span>
+                                <span class="detail-sub">${p.shares.toFixed(4)} action(s) × ${formatCurrency(p.perShare)} — ${d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                            </div>
+                            <div class="detail-amount">${formatCurrency(p.total)}</div>
+                        </div>
+                    `;
+                }
+            }
+
+            if (!rows) {
+                panel.innerHTML = '<div class="detail-empty">Aucun dividende trouvé depuis tes dates d\'achat</div>';
+                return;
+            }
+
+            rows += `
+                <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: center;">
+                    <button class="add-btn" style="height: 40px; padding: 8px 16px;" onclick="reinvestDividends()">🔄 Réinvestir maintenant</button>
+                    <span style="font-weight: 700; color: #00ff88;">Total : ${formatCurrency(grandTotal)}</span>
+                </div>
+                <p style="font-size: 0.7rem; color: #8892b0; margin-top: 8px;">
+                    Estimation basée sur l'historique public des dividendes — vérifie le montant exact chez ton courtier avant de faire confiance à ce chiffre.
+                </p>
+            `;
+            panel.innerHTML = rows;
+        }
+
+        // Manually "reinvest": adds one purchase per ETF for its accumulated
+        // dividend total, at today's current price — mirrors what a broker's
+        // DRIP would do, but only after you confirm the amount is right.
+        function reinvestDividends() {
+            const today = new Date().toISOString().slice(0, 10);
+            const nowSeconds = Math.floor(Date.now() / 1000);
+            let count = 0;
+            for (const etf of portfolio) {
+                const payments = etfDividendPayments(etf);
+                const total = payments.reduce((sum, p) => sum + p.total, 0);
+                if (total > 0 && etf.currentPrice) {
+                    const qty = total / etf.currentPrice;
+                    etf.purchases.push({ quantity: qty, price: etf.currentPrice, date: today });
+                    // Mark every dividend up to now as claimed so it's never
+                    // recounted on a future open of this panel.
+                    etf.dividendsReinvestedUntil = nowSeconds;
+                    count++;
+                }
+            }
+            if (count === 0) {
+                showError('⚠️ Rien à réinvestir (prix actuel manquant ou aucun dividende)');
+                return;
+            }
+            saveToLocalStorage();
+            renderPortfolio();
+            document.getElementById('totalDividends').textContent = formatCurrency(0);
+            document.getElementById('dividendsDetailPanel').innerHTML =
+                '<div class="detail-empty">✅ Dividendes réinvestis comme nouveaux achats.</div>';
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '—';
+            const d = new Date(dateStr + 'T00:00:00');
+            return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
+        }
+
+        function renderInvestDetails() {
+            const panel = document.getElementById('investDetailPanel');
+            if (portfolio.length === 0) {
+                panel.innerHTML = '<div class="detail-empty">Aucun achat enregistré</div>';
+                return;
+            }
+
+            let rows = '';
+            for (const etf of portfolio) {
+                etf.purchases.forEach((p, i) => {
+                    rows += `
+                        <div class="detail-row">
+                            <div class="detail-main">
+                                <span class="detail-ticker">${etf.ticker}</span>
+                                <span class="detail-sub">${p.quantity.toFixed(4)} action(s) à ${formatCurrency(p.price)} — ${formatDate(p.date)}</span>
+                            </div>
+                            <div class="detail-amount">${formatCurrency(p.quantity * p.price)}</div>
+                            <button class="detail-remove" onclick="removePurchase('${etf.ticker}', ${i})" title="Supprimer cet achat">×</button>
+                        </div>
+                    `;
+                });
+            }
+            panel.innerHTML = rows || '<div class="detail-empty">Aucun achat enregistré</div>';
+        }
+
+        function renderValueDetails() {
+            const panel = document.getElementById('valueDetailPanel');
+            if (portfolio.length === 0) {
+                panel.innerHTML = '<div class="detail-empty">Aucune position</div>';
+                return;
+            }
+
+            let rows = '';
+            for (const etf of portfolio) {
+                const qty = etfTotalQuantity(etf);
+                const value = etfCurrentValue(etf);
+                rows += `
+                    <div class="detail-row">
+                        <div class="detail-main">
+                            <span class="detail-ticker">${etf.ticker}</span>
+                            <span class="detail-sub">${qty.toFixed(4)} action(s) au prix actuel${etf.currentPrice ? ' (' + formatCurrency(etf.currentPrice) + ')' : ''}</span>
+                        </div>
+                        <div class="detail-amount">${etf.currentPrice ? formatCurrency(value) : 'chargement...'}</div>
+                    </div>
+                `;
+            }
+            panel.innerHTML = rows;
+        }
+
+        // Yahoo's /v8/finance/chart/{symbol} endpoint only accepts ONE symbol
+        // per request — it does not support comma-separated tickers (that
+        // silently 404s). Fetch each ticker separately, in parallel.
+        async function fetchOneTicker(ticker) {
+            // Routed through our own /api/price proxy: Yahoo's chart API
+            // doesn't send CORS headers, so browsers block a direct fetch
+            // to query1.finance.yahoo.com. The proxy fetches server-side
+            // (no CORS there) and re-serves the JSON same-origin.
+            const response = await fetch(
+                `/api/price?ticker=${encodeURIComponent(ticker)}`
+            );
+            if (!response.ok) throw new Error(`Non disponible (${ticker})`);
+            const data = await response.json();
+            const result = data.chart && data.chart.result && data.chart.result[0];
+            if (!result) throw new Error(`Pas de données (${ticker})`);
+            return result;
+        }
+
+        async function fetchPrices() {
+            if (portfolio.length === 0) return;
+
+            const results = await Promise.allSettled(
+                portfolio.map(etf => fetchOneTicker(etf.ticker))
+            );
+
+            let anySuccess = false;
+            let anyFailure = false;
+
+            portfolio.forEach((etf, i) => {
+                const outcome = results[i];
+                if (outcome.status !== 'fulfilled') {
+                    anyFailure = true;
+                    console.error(`Error fetching price for ${etf.ticker}:`, outcome.reason);
+                    return;
+                }
+                anySuccess = true;
+                const result = outcome.value;
+                const meta = result.meta;
+
+                if (meta && meta.regularMarketPrice) {
+                    etf.currentPrice = meta.regularMarketPrice;
+                    etf.previousClose = meta.previousClose || etf.currentPrice;
+                    etf.change = etf.currentPrice - etf.previousClose;
+                    etf.changePercent = (etf.change / etf.previousClose) * 100;
+                }
+
+                const historyData = result.indicators && result.indicators.quote &&
+                    result.indicators.quote[0] && result.indicators.quote[0].close;
+                if (historyData && Array.isArray(historyData)) {
+                    const validData = historyData.filter(v => v !== null && v !== undefined);
+                    priceHistory[etf.ticker] = validData.slice(-24);
+                }
+            });
+
+            if (anySuccess) {
+                updateLastUpdateTime();
+                renderPortfolio();
+                renderChart();
+            }
+            if (anyFailure) {
+                showError('⚠️ Certains prix n\'ont pas pu être récupérés. Réessai...');
+            }
+        }
+
+        function updateLastUpdateTime() {
+            const now = new Date();
+            document.getElementById('lastUpdate').textContent = 
+                `Dernière mise à jour: ${now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
+        }
+
+        function renderPortfolio() {
+            const container = document.getElementById('etfList');
+            const emptyState = document.getElementById('emptyState');
+            const summarySection = document.getElementById('summarySection');
+
+            if (portfolio.length === 0) {
+                emptyState.style.display = 'block';
+                summarySection.style.display = 'none';
+                // Remove other items
+                const items = container.querySelectorAll('.etf-item');
+                items.forEach(item => item.remove());
+                return;
+            }
+
+            emptyState.style.display = 'none';
+            summarySection.style.display = 'grid';
+
+            // Calculate totals (across all purchase lots of all ETFs)
+            const totalInvest = portfolio.reduce((sum, e) => sum + etfTotalCost(e), 0);
+            const totalValue = portfolio.reduce((sum, e) => sum + etfCurrentValue(e), 0);
+
+            const totalGain = totalValue - totalInvest;
+            const totalGainPercent = totalInvest > 0 ? (totalGain / totalInvest) * 100 : null;
+
+            document.getElementById('totalInvest').textContent = formatCurrency(totalInvest);
+            document.getElementById('totalValue').textContent = formatCurrency(totalValue);
+            document.getElementById('totalGain').textContent = totalGainPercent === null
+                ? `${formatCurrency(totalGain)} (—)`
+                : `${totalGain >= 0 ? '+' : ''}${formatCurrency(totalGain)} (${totalGainPercent >= 0 ? '+' : ''}${totalGainPercent.toFixed(2)}%)`;
+            document.getElementById('totalGain').className = `summary-value ${totalGain >= 0 ? 'positive' : 'negative'}`;
+
+            // Remove existing items
+            const existingItems = container.querySelectorAll('.etf-item');
+            existingItems.forEach(item => item.remove());
+
+            // Add items (one row per ETF, aggregating all its purchases)
+            for (const etf of portfolio) {
+                const quantity = etfTotalQuantity(etf);
+                const value = etfCurrentValue(etf);
+                const div = document.createElement('div');
+                div.className = 'etf-item';
+                div.innerHTML = `
+                    <div class="etf-info">
+                        <div class="etf-ticker">${etf.ticker}</div>
+                        <div class="etf-name">${etf.name} · ${quantity.toFixed(4)} action(s)</div>
+                    </div>
+                    <div class="etf-price">
+                        ${etf.currentPrice ? formatCurrency(etf.currentPrice) : '<span class="loading"></span>'}
+                    </div>
+                    <div class="${etf.changePercent !== undefined && isFinite(etf.changePercent) ? (etf.changePercent >= 0 ? 'positive' : 'negative') : ''}"
+                         style="${etf.changePercent === undefined ? 'visibility: hidden;' : ''}">
+                        ${etf.changePercent !== undefined && isFinite(etf.changePercent)
+                            ? (etf.changePercent >= 0 ? '+' : '') + etf.changePercent.toFixed(2) + '%'
+                            : '—'}
+                    </div>
+                    <div class="etf-value">
+                        ${etf.currentPrice ? formatCurrency(value) : '<span class="loading"></span>'}
+                    </div>
+                    <button class="remove-btn" onclick="removeETF('${etf.ticker}')">×</button>
+                `;
+                container.appendChild(div);
+            }
+
+            // Keep an open detail panel in sync with fresh prices
+            if (openDetailPanel === 'invest') renderInvestDetails();
+            if (openDetailPanel === 'value') renderValueDetails();
+        }
+
+        function formatCurrency(amount) {
+            return new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: 'USD',
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            }).format(amount);
+        }
+
+        function renderChart() {
+            const container = document.getElementById('chartContainer');
+            container.innerHTML = '';
+
+            const hasData = portfolio.some(e => priceHistory[e.ticker] && priceHistory[e.ticker].length > 0);
+            if (!hasData) {
+                container.innerHTML = '<div class="empty-state" style="padding: 40px;"><p>En attente des données...</p></div>';
+                return;
+            }
+
+            // Find global min/max for scaling
+            let allPrices = [];
+            for (const etf of portfolio) {
+                if (priceHistory[etf.ticker]) {
+                    allPrices = allPrices.concat(priceHistory[etf.ticker]);
+                }
+            }
+
+            if (allPrices.length === 0) return;
+
+            const minPrice = Math.min(...allPrices);
+            const maxPrice = Math.max(...allPrices);
+            const range = maxPrice - minPrice || 1;
+
+            // Find which ETF to show (first one, or user can click to switch)
+            const primaryETF = portfolio[0];
+            const data = priceHistory[primaryETF.ticker] || [];
+
+            // Show last 24 points
+            const pointsToShow = data.slice(-24);
+
+            pointsToShow.forEach((price, index) => {
+                if (price === null || price === undefined) return;
+                const bar = document.createElement('div');
+                bar.className = 'chart-bar';
+                const heightPercent = ((price - minPrice) / range) * 100;
+                bar.style.height = Math.max(4, heightPercent) + '%';
+                
+                bar.title = `${primaryETF.ticker}: ${formatCurrency(price)}`;
+                container.appendChild(bar);
+            });
+
+            document.getElementById('chartStart').textContent = 
+                `${primaryETF.ticker} — il y a 24 périodes`;
+            document.getElementById('chartEnd').textContent = `Maintenant: ${formatCurrency(primaryETF.currentPrice || 0)}`;
+        }
+
+        function setView(view) {
+            const buttons = document.querySelectorAll('.toggle-btn');
+            buttons.forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+
+            const etfList = document.getElementById('etfList');
+            const chartSection = document.getElementById('chartSection');
+
+            if (view === 'table') {
+                etfList.style.display = 'block';
+                chartSection.style.display = 'none';
+            } else {
+                etfList.style.display = 'none';
+                chartSection.style.display = 'block';
+                renderChart();
+            }
+        }
+
+        async function fetchHistoricalCagr() {
+            const ticker = document.getElementById('projTickerInput').value.trim().toUpperCase();
+            const yearsBack = document.getElementById('projYearsBackInput').value;
+            const note = document.getElementById('cagrNote');
+
+            if (!ticker) {
+                showError('⚠️ Entre un ticker (ex: VOO)');
+                return;
+            }
+
+            note.textContent = '⏳ Récupération du rendement historique...';
+            try {
+                const response = await fetch(`/api/cagr?ticker=${encodeURIComponent(ticker)}&years=${yearsBack}`);
+                const data = await response.json();
+                if (!response.ok || data.error) throw new Error(data.error || 'échec de la requête');
+
+                document.getElementById('projRateInput').value = data.cagr_percent;
+                note.textContent = `✅ ${ticker} : ${data.cagr_percent}% / an en moyenne sur ${data.years_used} ans (prix seul, dividendes non inclus — le vrai rendement total est un peu plus élevé).`;
+            } catch (error) {
+                note.textContent = `⚠️ Impossible de récupérer le rendement pour ${ticker} — entre une valeur manuellement.`;
+                console.error('CAGR fetch error:', error);
+            }
+        }
+
+        // Compound-growth projection: fixed monthly contribution, all gains
+        // reinvested, constant assumed annual return (ordinary annuity —
+        // contribution counted at the end of each month).
+        function calculateProjection() {
+            const monthly = parseFloat(document.getElementById('projMonthlyInput').value);
+            const annualRatePercent = parseFloat(document.getElementById('projRateInput').value);
+            const years = parseInt(document.getElementById('projYearsInput').value, 10);
+
+            if (!monthly || monthly <= 0) {
+                showError('⚠️ Entre un montant mensuel valide');
+                return;
+            }
+            if (annualRatePercent === null || isNaN(annualRatePercent) || annualRatePercent < 0) {
+                showError('⚠️ Entre un rendement annuel valide (0 ou plus)');
+                return;
+            }
+            if (!years || years <= 0) {
+                showError('⚠️ Entre une durée en années valide');
+                return;
+            }
+
+            const monthlyRate = annualRatePercent / 100 / 12;
+            const results = document.getElementById('projectionResults');
+
+            // Yearly checkpoints: every year up to 10, then every 5 after that,
+            // plus the final year — keeps the table readable for long horizons.
+            const checkpoints = [];
+            for (let y = 1; y <= years; y++) {
+                if (y <= 10 || y % 5 === 0 || y === years) checkpoints.push(y);
+            }
+
+            let rows = '';
+            for (const y of checkpoints) {
+                const n = y * 12;
+                const invested = monthly * n;
+                const value = monthlyRate === 0
+                    ? invested
+                    : monthly * ((Math.pow(1 + monthlyRate, n) - 1) / monthlyRate);
+                const gain = value - invested;
+                rows += `
+                    <tr>
+                        <td>An ${y}</td>
+                        <td>${formatCurrency(invested)}</td>
+                        <td>${formatCurrency(value)}</td>
+                        <td style="color: ${gain >= 0 ? '#00ff88' : '#ff4757'}">${gain >= 0 ? '+' : ''}${formatCurrency(gain)}</td>
+                    </tr>
+                `;
+            }
+
+            const totalMonths = years * 12;
+            const totalInvested = monthly * totalMonths;
+            const finalValue = monthlyRate === 0
+                ? totalInvested
+                : monthly * ((Math.pow(1 + monthlyRate, totalMonths) - 1) / monthlyRate);
+
+            results.innerHTML = `
+                <div class="proj-summary">
+                    <div class="summary-item" style="cursor: default;">
+                        <div class="summary-label">Total investi (${years} ans)</div>
+                        <div class="summary-value">${formatCurrency(totalInvested)}</div>
+                    </div>
+                    <div class="summary-item" style="cursor: default;">
+                        <div class="summary-label">Valeur projetée</div>
+                        <div class="summary-value positive">${formatCurrency(finalValue)}</div>
+                    </div>
+                    <div class="summary-item" style="cursor: default;">
+                        <div class="summary-label">Gains projetés</div>
+                        <div class="summary-value positive">+${formatCurrency(finalValue - totalInvested)}</div>
+                    </div>
+                </div>
+                <table class="proj-table">
+                    <thead>
+                        <tr><th>Période</th><th>Total investi</th><th>Valeur projetée</th><th>Gains</th></tr>
+                    </thead>
+                    <tbody>${rows}</tbody>
+                </table>
+            `;
+        }
+
+        function showError(message) {
+            const toast = document.getElementById('errorToast');
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        // Initialize
+        const dateInputEl = document.getElementById('dateInput');
+        if (dateInputEl) dateInputEl.value = new Date().toISOString().slice(0, 10);
+
+        initPortfolio();
+        renderPortfolio();
+        fetchPrices();
+        calculateProjection();
+        
+        // Auto-update every 30 seconds
+        updateInterval = setInterval(fetchPrices, 30000);
+
+        // Handle visibility change to reload when user comes back
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) {
+                fetchPrices();
+            }
+        });
+    </script>
+</body>
+</html>
