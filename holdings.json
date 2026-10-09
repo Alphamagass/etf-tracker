@@ -1,0 +1,65 @@
+[
+  {
+    "ticker": "IJR",
+    "shares": 0.212374,
+    "price": 141.26,
+    "date": "2026-09-14",
+    "note": "Achat $30 — cours de cloture Yahoo"
+  },
+  {
+    "ticker": "IJR",
+    "shares": 0.000792,
+    "price": 138.9,
+    "date": "2026-09-18",
+    "note": "Dividende reinvesti $0.11 — cours de cloture Yahoo"
+  },
+  {
+    "ticker": "IJR",
+    "shares": 0.14404,
+    "price": 138.85,
+    "date": "2026-10-06",
+    "note": "Achat $20 — cours de cloture Yahoo"
+  },
+  {
+    "ticker": "SCZ",
+    "shares": 0.350754,
+    "price": 85.53,
+    "date": "2026-09-14",
+    "note": "Achat $30 — cours de cloture Yahoo"
+  },
+  {
+    "ticker": "SCZ",
+    "shares": 0.236939,
+    "price": 84.41,
+    "date": "2026-10-06",
+    "note": "Achat $20 — cours de cloture Yahoo"
+  },
+  {
+    "ticker": "COHR",
+    "shares": 0.082585,
+    "price": 290.61,
+    "date": "2026-09-24",
+    "note": "Achat $24 — cours de cloture Yahoo"
+  },
+  {
+    "ticker": "COHR",
+    "shares": 0.088663,
+    "price": 338.36,
+    "date": "2026-10-06",
+    "note": "Achat $30 — cours de cloture Yahoo"
+  },
+  {
+    "ticker": "IONQ",
+    "shares": 0.778124,
+    "price": 44.98,
+    "date": "2026-09-24",
+    "note": "Achat $35 — cours de cloture Yahoo"
+  },
+  {
+    "ticker": "IONQ",
+    "shares": 0.693001,
+    "price": 43.29,
+    "date": "2026-10-06",
+    "note": "Achat $30 — cours de cloture Yahoo"
+  }
+]
