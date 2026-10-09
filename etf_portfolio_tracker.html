@@ -674,6 +674,10 @@
             'IEFA': 'iShares Core MSCI EAFE ETF',
             'IEMG': 'iShares Core MSCI Emerging Markets ETF',
             'SCHD': 'Schwab US Dividend Equity ETF',
+            'IJR': 'iShares Core S&P Small-Cap ETF',
+            'SCZ': 'iShares MSCI EAFE Small-Cap ETF',
+            'COHR': 'Coherent Corp.',
+            'IONQ': 'IonQ, Inc.',
         };
 
         // Local persistence (this device/browser only — not synced across devices)
@@ -681,7 +685,13 @@
 
         function saveToLocalStorage() {
             try {
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(portfolio));
+                // Synced holdings (source: 'synced', from holdings.json) are NOT
+                // stored here: they reload from the repo on every visit.
+                const manualOnly = portfolio.map(etf => ({
+                    ...etf,
+                    purchases: etf.purchases.filter(p => p.source !== 'synced')
+                })).filter(etf => etf.purchases.length > 0);
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(manualOnly));
             } catch (e) {
                 console.error('Error saving portfolio to localStorage:', e);
             }
@@ -1344,6 +1354,40 @@
             }, 3000);
         }
 
+        // Synced holdings: maintained in holdings.json at the repo root (added by
+        // the assistant, committed to GitHub). Fetched on every visit so they
+        // appear on any device. Manual entries stay in this browser's
+        // localStorage only. Returns true if any new synced purchase was merged.
+        async function loadSyncedHoldings() {
+            try {
+                const response = await fetch('holdings.json', { cache: 'no-store' });
+                if (!response.ok) return false;
+                const holdings = await response.json();
+                if (!Array.isArray(holdings)) return false;
+                let added = false;
+                for (const h of holdings) {
+                    if (!h || !h.ticker || !h.shares || !h.price) continue;
+                    const etf = getOrCreateETF(String(h.ticker).toUpperCase());
+                    const already = etf.purchases.some(p =>
+                        p.source === 'synced' && p.date === (h.date || '') &&
+                        p.quantity === h.shares && p.price === h.price);
+                    if (!already) {
+                        etf.purchases.push({
+                            quantity: h.shares,
+                            price: h.price,
+                            date: h.date || '',
+                            source: 'synced'
+                        });
+                        added = true;
+                    }
+                }
+                return added;
+            } catch (e) {
+                console.error('Error loading synced holdings:', e);
+                return false;
+            }
+        }
+
         // Initialize
         const dateInputEl = document.getElementById('dateInput');
         if (dateInputEl) dateInputEl.value = new Date().toISOString().slice(0, 10);
@@ -1352,6 +1396,13 @@
         renderPortfolio();
         fetchPrices();
         calculateProjection();
+        // Merge repo-synced holdings (if any), then refresh display + prices.
+        loadSyncedHoldings().then((added) => {
+            if (added) {
+                renderPortfolio();
+                fetchPrices();
+            }
+        });
         
         // Auto-update every 30 seconds
         updateInterval = setInterval(fetchPrices, 30000);
