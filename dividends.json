@@ -1,0 +1,100 @@
+{
+  "asof": "2026-10-09",
+  "dividends": {
+    "COHR": [],
+    "IJR": [
+      {
+        "date": 1679578200,
+        "amount": 0.329
+      },
+      {
+        "date": 1686144600,
+        "amount": 0.351
+      },
+      {
+        "date": 1695735000,
+        "amount": 0.459
+      },
+      {
+        "date": 1703082600,
+        "amount": 0.283
+      },
+      {
+        "date": 1711027800,
+        "amount": 0.326
+      },
+      {
+        "date": 1718112600,
+        "amount": 0.386
+      },
+      {
+        "date": 1727271000,
+        "amount": 0.515
+      },
+      {
+        "date": 1734445800,
+        "amount": 1.138
+      },
+      {
+        "date": 1742304600,
+        "amount": 0.323
+      },
+      {
+        "date": 1750080600,
+        "amount": 0.388
+      },
+      {
+        "date": 1758029400,
+        "amount": 0.444
+      },
+      {
+        "date": 1765895400,
+        "amount": 0.572
+      },
+      {
+        "date": 1773754200,
+        "amount": 0.194
+      },
+      {
+        "date": 1781530200,
+        "amount": 0.433
+      },
+      {
+        "date": 1789479000,
+        "amount": 0.509
+      }
+    ],
+    "IONQ": [],
+    "SCZ": [
+      {
+        "date": 1686144600,
+        "amount": 0.999
+      },
+      {
+        "date": 1703082600,
+        "amount": 0.83
+      },
+      {
+        "date": 1718112600,
+        "amount": 0.899
+      },
+      {
+        "date": 1734445800,
+        "amount": 1.227
+      },
+      {
+        "date": 1750080600,
+        "amount": 1.059
+      },
+      {
+        "date": 1765895400,
+        "amount": 1.497
+      },
+      {
+        "date": 1781530200,
+        "amount": 1.17
+      }
+    ]
+  },
+  "note": "Historique des dividendes par action (Yahoo Finance), mis a jour par tache planifiee."
+}
