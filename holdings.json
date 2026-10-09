@@ -11,7 +11,8 @@
     "shares": 0.000792,
     "price": 138.9,
     "date": "2026-09-18",
-    "note": "Dividende reinvesti $0.11 — cours de cloture Yahoo"
+    "note": "Dividende reinvesti $0.11 (versement du 2026-09-15) — cours de cloture Yahoo",
+    "reinvestsDividendUntil": "2026-09-15"
   },
   {
     "ticker": "IJR",
