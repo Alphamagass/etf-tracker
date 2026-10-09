@@ -850,6 +850,20 @@
 
         // Fetch dividend payment history for every ticker currently held
         // (cached — only refetched once per ticker per page load).
+        // Dividend history snapshot (dividends.json, same origin as the page),
+        // refreshed daily in the repo. Memoized: one fetch per page load.
+        let dividendsSnapshotCache = null;
+        async function getDividendsSnapshot() {
+            if (dividendsSnapshotCache) return dividendsSnapshotCache;
+            try {
+                const r = await fetch('dividends.json', { cache: 'no-store' });
+                if (!r.ok) return null;
+                const snap = await r.json();
+                dividendsSnapshotCache = snap;
+                return snap;
+            } catch (e) { return null; }
+        }
+
         async function refreshDividends() {
             const tickers = portfolio.map(e => e.ticker).filter(t => !dividendsCache[t]);
             await Promise.allSettled(tickers.map(async (ticker) => {
@@ -859,8 +873,17 @@
                     if (!response.ok || data.error) throw new Error(data.error || 'échec');
                     dividendsCache[ticker] = data.payments || [];
                 } catch (error) {
-                    console.error(`Error fetching dividends for ${ticker}:`, error);
-                    dividendsCache[ticker] = [];
+                    // Fallback: dividend history snapshot from the repo
+                    // (same origin — works on any network, including phones
+                    // where the proxy is unreachable).
+                    try {
+                        const snap = await getDividendsSnapshot();
+                        const list = snap && snap.dividends && snap.dividends[ticker];
+                        dividendsCache[ticker] = Array.isArray(list) ? list : [];
+                    } catch (e2) {
+                        console.error(`Error fetching dividends for ${ticker}:`, error);
+                        dividendsCache[ticker] = [];
+                    }
                 }
             }));
             updateDividendsSummary();
@@ -872,7 +895,14 @@
 
         function sharesHeldAt(etf, timestampSeconds) {
             return etf.purchases
-                .filter(p => purchaseDateToTimestamp(p.date) <= timestampSeconds)
+                .filter(p => {
+                    const lotDate = purchaseDateToTimestamp(p.date);
+                    if (lotDate > timestampSeconds) return false;
+                    // Shares bought by reinvesting a dividend never earned the
+                    // very dividend that bought them.
+                    if (p.reinvested && lotDate >= timestampSeconds) return false;
+                    return true;
+                })
                 .reduce((sum, p) => sum + p.quantity, 0);
         }
 
@@ -893,8 +923,26 @@
             return rows;
         }
 
+        // Dividends already reinvested (by the broker or via the button
+        // below): real money received, shown for transparency, never recounted.
+        function etfClaimedDividendPayments(etf) {
+            const payments = dividendsCache[etf.ticker] || [];
+            const claimedUntil = etf.dividendsReinvestedUntil || 0;
+            if (!claimedUntil) return [];
+            const rows = [];
+            for (const div of payments) {
+                if (div.date > claimedUntil) continue;
+                const shares = sharesHeldAt(etf, div.date);
+                if (shares > 0) {
+                    rows.push({ date: div.date, shares, perShare: div.amount, total: shares * div.amount, reinvested: true });
+                }
+            }
+            return rows;
+        }
+
         function etfDividendsTotal(etf) {
-            return etfDividendPayments(etf).reduce((sum, r) => sum + r.total, 0);
+            const all = etfDividendPayments(etf).concat(etfClaimedDividendPayments(etf));
+            return all.reduce((sum, r) => sum + r.total, 0);
         }
 
         function updateDividendsSummary() {
@@ -911,16 +959,20 @@
 
             let rows = '';
             let grandTotal = 0;
+            let hasUnclaimed = false;
             for (const etf of portfolio) {
-                const payments = etfDividendPayments(etf);
-                for (const p of payments) {
+                const unclaimed = etfDividendPayments(etf);
+                const claimed = etfClaimedDividendPayments(etf);
+                if (unclaimed.length) hasUnclaimed = true;
+                for (const p of unclaimed.concat(claimed)) {
                     grandTotal += p.total;
                     const d = new Date(p.date * 1000);
+                    const tag = p.reinvested ? ' <span style="color:#8892b0;">· réinvesti</span>' : '';
                     rows += `
                         <div class="detail-row">
                             <div class="detail-main">
                                 <span class="detail-ticker">${etf.ticker}</span>
-                                <span class="detail-sub">${p.shares.toFixed(4)} action(s) × ${formatCurrency(p.perShare)} — ${d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                                <span class="detail-sub">${p.shares.toFixed(4)} action(s) × ${formatCurrency(p.perShare)} — ${d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}${tag}</span>
                             </div>
                             <div class="detail-amount">${formatCurrency(p.total)}</div>
                         </div>
@@ -935,7 +987,7 @@
 
             rows += `
                 <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: center;">
-                    <button class="add-btn" style="height: 40px; padding: 8px 16px;" onclick="reinvestDividends()">🔄 Réinvestir maintenant</button>
+                    ${hasUnclaimed ? '<button class="add-btn" style="height: 40px; padding: 8px 16px;" onclick="reinvestDividends()">🔄 Réinvestir maintenant</button>' : '<span></span>'}
                     <span style="font-weight: 700; color: #00ff88;">Total : ${formatCurrency(grandTotal)}</span>
                 </div>
                 <p style="font-size: 0.7rem; color: #8892b0; margin-top: 8px;">
@@ -957,7 +1009,7 @@
                 const total = payments.reduce((sum, p) => sum + p.total, 0);
                 if (total > 0 && etf.currentPrice) {
                     const qty = total / etf.currentPrice;
-                    etf.purchases.push({ quantity: qty, price: etf.currentPrice, date: today });
+                    etf.purchases.push({ quantity: qty, price: etf.currentPrice, date: today, reinvested: true });
                     // Mark every dividend up to now as claimed so it's never
                     // recounted on a future open of this panel.
                     etf.dividendsReinvestedUntil = nowSeconds;
@@ -970,7 +1022,7 @@
             }
             saveToLocalStorage();
             renderPortfolio();
-            document.getElementById('totalDividends').textContent = formatCurrency(0);
+            updateDividendsSummary();
             document.getElementById('dividendsDetailPanel').innerHTML =
                 '<div class="detail-empty">✅ Dividendes réinvestis comme nouveaux achats.</div>';
         }
@@ -1444,12 +1496,24 @@
                         p.source === 'synced' && p.date === (h.date || '') &&
                         p.quantity === h.shares && p.price === h.price);
                     if (!already) {
-                        etf.purchases.push({
+                        const purchase = {
                             quantity: h.shares,
                             price: h.price,
                             date: h.date || '',
                             source: 'synced'
-                        });
+                        };
+                        if (h.reinvestsDividendUntil) {
+                            // This lot came from a broker-side dividend
+                            // reinvestment: its shares never earned the very
+                            // dividend that bought them, and that dividend must
+                            // never be counted again as "to reinvest".
+                            purchase.reinvested = true;
+                            const ts = Math.floor(new Date(h.reinvestsDividendUntil + 'T23:59:59Z').getTime() / 1000);
+                            if (!isNaN(ts)) {
+                                etf.dividendsReinvestedUntil = Math.max(etf.dividendsReinvestedUntil || 0, ts);
+                            }
+                        }
+                        etf.purchases.push(purchase);
                         added = true;
                     }
                 }
