@@ -1033,40 +1033,90 @@
         // Yahoo's /v8/finance/chart/{symbol} endpoint only accepts ONE symbol
         // per request — it does not support comma-separated tickers (that
         // silently 404s). Fetch each ticker separately, in parallel.
+        // Where each ticker's price came from on the last fetch: 'live' or 'snapshot'.
+        let priceSources = {};
+        // Daily close snapshot (prices.json, same origin) — memoized per page load.
+        let pricesSnapshotCache = null;
+
+        async function fetchWithTimeout(url, ms) {
+            const ctrl = new AbortController();
+            const timer = setTimeout(() => ctrl.abort(), ms);
+            try {
+                return await fetch(url, { signal: ctrl.signal });
+            } finally {
+                clearTimeout(timer);
+            }
+        }
+
+        async function getPricesSnapshot() {
+            if (pricesSnapshotCache) return pricesSnapshotCache;
+            try {
+                const r = await fetch('prices.json', { cache: 'no-store' });
+                if (!r.ok) return null;
+                const snap = await r.json();
+                if (snap && snap.prices) {
+                    pricesSnapshotCache = snap;
+                    return snap;
+                }
+            } catch (e) { /* ignore — caller tries the next source */ }
+            return null;
+        }
+
+        function yahooResultFromJson(data) {
+            const result = data.chart && data.chart.result && data.chart.result[0];
+            if (result && result.meta && result.meta.regularMarketPrice) return result;
+            return null;
+        }
+
         async function fetchOneTicker(ticker) {
-            // Routed through our own /api/price proxy when one is served
-            // alongside the page: Yahoo's chart API doesn't send CORS headers,
-            // so browsers block a direct fetch to query1.finance.yahoo.com.
-            // The proxy fetches server-side (no CORS there) and re-serves the
-            // JSON same-origin.
+            // 1) Private backend proxy when one is served alongside the page:
+            // Yahoo's chart API doesn't send CORS headers, so browsers block a
+            // direct fetch to query1.finance.yahoo.com. The proxy fetches
+            // server-side (no CORS there) and re-serves the JSON same-origin.
             try {
                 const response = await fetch(
                     `/api/price?ticker=${encodeURIComponent(ticker)}`
                 );
                 if (response.ok) {
-                    const data = await response.json();
-                    const result = data.chart && data.chart.result && data.chart.result[0];
-                    if (result) return result;
+                    const result = yahooResultFromJson(await response.json());
+                    if (result) {
+                        priceSources[ticker] = 'live';
+                        return result;
+                    }
                 }
-            } catch (e) {
-                // No backend proxy here (e.g. plain GitHub Pages) — use the
-                // public fallback below.
+            } catch (e) { /* no backend proxy here — continue */ }
+            // 2) Live public relay (best effort; unreachable on some networks).
+            try {
+                const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=1mo`;
+                const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(yahooUrl)}`;
+                const response = await fetchWithTimeout(proxyUrl, 12000);
+                const result = yahooResultFromJson(await response.json());
+                if (result) {
+                    priceSources[ticker] = 'live';
+                    return result;
+                }
+            } catch (e) { /* continue to the snapshot */ }
+            // 3) Daily close snapshot from the repo — same origin, so it always
+            // loads. Refreshed every trading day by an automated job.
+            const snap = await getPricesSnapshot();
+            if (snap && snap.prices[ticker]) {
+                const closes = (snap.history && snap.history[ticker]) || [snap.prices[ticker]];
+                const price = snap.prices[ticker];
+                priceSources[ticker] = 'snapshot';
+                return {
+                    meta: {
+                        regularMarketPrice: price,
+                        previousClose: closes.length > 1 ? closes[closes.length - 2] : price
+                    },
+                    indicators: { quote: [{ close: closes }] }
+                };
             }
-            // Public fallback for static hosting: Yahoo's chart API through the
-            // allorigins CORS proxy. Same JSON shape (quotes ~15 min delayed),
-            // so the rest of the pipeline works unchanged.
-            const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=1mo`;
-            const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(yahooUrl)}`;
-            const response = await fetch(proxyUrl);
-            if (!response.ok) throw new Error(`Non disponible (${ticker})`);
-            const data = await response.json();
-            const result = data.chart && data.chart.result && data.chart.result[0];
-            if (!result) throw new Error(`Pas de données (${ticker})`);
-            return result;
+            throw new Error(`Non disponible (${ticker})`);
         }
 
         async function fetchPrices() {
             if (portfolio.length === 0) return;
+            priceSources = {};
 
             const results = await Promise.allSettled(
                 portfolio.map(etf => fetchOneTicker(etf.ticker))
@@ -1113,8 +1163,13 @@
 
         function updateLastUpdateTime() {
             const now = new Date();
-            document.getElementById('lastUpdate').textContent = 
-                `Dernière mise à jour: ${now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
+            let label = `Dernière mise à jour: ${now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
+            if (Object.values(priceSources).includes('snapshot') && pricesSnapshotCache && pricesSnapshotCache.asof) {
+                const asofFr = new Date(pricesSnapshotCache.asof + 'T12:00:00')
+                    .toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+                label += ` · clôture du ${asofFr}`;
+            }
+            document.getElementById('lastUpdate').textContent = label;
         }
 
         function renderPortfolio() {
