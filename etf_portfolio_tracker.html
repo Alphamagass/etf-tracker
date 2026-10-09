@@ -1034,13 +1034,30 @@
         // per request — it does not support comma-separated tickers (that
         // silently 404s). Fetch each ticker separately, in parallel.
         async function fetchOneTicker(ticker) {
-            // Routed through our own /api/price proxy: Yahoo's chart API
-            // doesn't send CORS headers, so browsers block a direct fetch
-            // to query1.finance.yahoo.com. The proxy fetches server-side
-            // (no CORS there) and re-serves the JSON same-origin.
-            const response = await fetch(
-                `/api/price?ticker=${encodeURIComponent(ticker)}`
-            );
+            // Routed through our own /api/price proxy when one is served
+            // alongside the page: Yahoo's chart API doesn't send CORS headers,
+            // so browsers block a direct fetch to query1.finance.yahoo.com.
+            // The proxy fetches server-side (no CORS there) and re-serves the
+            // JSON same-origin.
+            try {
+                const response = await fetch(
+                    `/api/price?ticker=${encodeURIComponent(ticker)}`
+                );
+                if (response.ok) {
+                    const data = await response.json();
+                    const result = data.chart && data.chart.result && data.chart.result[0];
+                    if (result) return result;
+                }
+            } catch (e) {
+                // No backend proxy here (e.g. plain GitHub Pages) — use the
+                // public fallback below.
+            }
+            // Public fallback for static hosting: Yahoo's chart API through the
+            // allorigins CORS proxy. Same JSON shape (quotes ~15 min delayed),
+            // so the rest of the pipeline works unchanged.
+            const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=1mo`;
+            const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(yahooUrl)}`;
+            const response = await fetch(proxyUrl);
             if (!response.ok) throw new Error(`Non disponible (${ticker})`);
             const data = await response.json();
             const result = data.chart && data.chart.result && data.chart.result[0];
